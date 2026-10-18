@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Henting i morgen</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; }
+  body { background:linear-gradient(160deg,#16302b,#1f4d3f 60%,#2b6b55); color:#fff; font-family:Roboto, "Segoe UI", Arial, sans-serif;
+         display:flex; flex-direction:column; justify-content:center; align-items:center; padding:5vh 5vw; text-align:center; }
+  .topp { font-size:3.2vh; letter-spacing:.14em; text-transform:uppercase; opacity:.75; }
+  h1 { font-size:8vh; margin:1.5vh 0 5vh; font-weight:700; line-height:1.1; }
+  .rad { display:flex; gap:5vw; justify-content:center; flex-wrap:wrap; }
+  .f { display:flex; flex-direction:column; align-items:center; gap:1.5vh; }
+  .f svg { width:20vh; height:20vh; }
+  .f span { font-size:4.2vh; font-weight:500; }
+  .dato { margin-top:5vh; font-size:3vh; opacity:.7; }
+</style>
+</head>
+<body>
+  <div class="topp">♻ Renovasjon</div>
+  <h1 id="tittel">Henting i morgen</h1>
+  <div class="rad" id="rad"></div>
+  <div class="dato" id="dato"></div>
+<script>
+// Viser hvilke avfallstyper som hentes, f.eks. ?typer=Restavfall,Matavfall&dato=tor.%2022.%20okt.&n=1
+const q = new URLSearchParams(location.search);
+const typer = (q.get('typer') || '').split(',').map((s) => s.trim()).filter(Boolean);
+const n = parseInt(q.get('n') || '1', 10);
+const FARGE = [
+  [/rest/i, '#9aa3ad', '#3c4249'], [/mat|bio/i, '#6bbf59', '#3d6b2f'], [/papir|papp/i, '#4f9de0', '#24527a'],
+  [/plast/i, '#b18be0', '#5e3d85'], [/glass|metall/i, '#4fc4c0', '#25706d'], [/hage/i, '#a7c957', '#56702a'], [/farlig/i, '#e05252', '#7a2424'],
+];
+const farge = (t) => (FARGE.find(([re]) => re.test(t)) || [null, '#d0d0d0', '#555'])
+const dunk = ([, lys, mork]) => `<svg viewBox="0 0 64 64"><rect x="10" y="10" width="44" height="8" rx="3" fill="${mork}"/><rect x="26" y="5" width="12" height="6" rx="2" fill="${mork}"/>
+  <path d="M14 20h36l-3 38a4 4 0 0 1-4 3.6H21a4 4 0 0 1-4-3.6z" fill="${lys}"/><path d="M25 27v26M32 27v26M39 27v26" stroke="${mork}" stroke-width="2.5" stroke-linecap="round" opacity=".55"/></svg>`;
+document.getElementById('tittel').textContent = n === 0 ? 'Henting i dag' : n === 1 ? 'Henting i morgen' : 'Henting om ' + n + ' dager';
+document.getElementById('rad').innerHTML = typer.map((t) => `<div class="f">${dunk(farge(t))}<span></span></div>`).join('');
+document.querySelectorAll('.f span').forEach((s, i) => { s.textContent = typer[i]; });
+document.getElementById('dato').textContent = (q.get('dato') || '') + (typer.length ? ' · Husk å sette dunkene ut' : '');
+</script>
+</body>
+</html>
