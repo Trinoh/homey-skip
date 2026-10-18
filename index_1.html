@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passerer nå</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --bg1:#0b2545; --bg2:#13315c; --bg3:#1d4e89; --tekst:#ffffff; --dempet:rgba(255,255,255,.65); --aksent:#8ecae6; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; }
+  body { background:linear-gradient(160deg,var(--bg1),var(--bg2) 60%,var(--bg3)); color:var(--tekst);
+         font-family:Roboto, "Segoe UI", Arial, sans-serif; display:grid; grid-template-columns: 1.15fr 1fr; gap:3vw; padding:5vh 4vw; }
+  .venstre { display:flex; flex-direction:column; justify-content:center; min-width:0; }
+  .topp { font-size:3vh; letter-spacing:.12em; text-transform:uppercase; color:var(--dempet); }
+  .type { font-size:3.6vh; color:var(--aksent); margin-top:2vh; }
+  .navn { font-size:9vh; font-weight:700; line-height:1.02; margin:.6vh 0 3vh; overflow-wrap:anywhere; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:2vh 3vw; }
+  .felt span { display:block; font-size:2.3vh; color:var(--dempet); }
+  .felt b { font-size:3.8vh; font-weight:500; }
+  .hoyre { display:grid; grid-template-rows: 1.25fr 1fr; gap:2.5vh; min-height:0; }
+  .bilde, #kart { border-radius:2vh; overflow:hidden; background:rgba(255,255,255,.07); position:relative; min-height:0; }
+  .bilde img { width:100%; height:100%; object-fit:cover; display:block; }
+  .bilde .kreditt { position:absolute; left:0; right:0; bottom:0; font-size:1.6vh; padding:.6vh 1vw; background:rgba(0,0,0,.45); color:#ddd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bilde .tom { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--dempet); font-size:2.6vh; }
+  .bilde .tom svg { width:40%; height:auto; opacity:.8; margin-bottom:1.5vh; }
+  .leaflet-container { background:#0b2545; }
+  .skipspil { width:34px; height:34px; }
+</style>
+</head>
+<body>
+  <div class="venstre">
+    <div class="topp" id="topp">⚓ Passerer nå</div>
+    <div class="type" id="type"></div>
+    <div class="navn" id="navn">Ukjent skip</div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="hoyre">
+    <div class="bilde" id="bilde">
+      <div class="tom" id="tom">
+        <svg viewBox="0 0 64 40" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 26h56l-7 10H11z"/><path d="M14 26V16h30v10M22 16V8h12v8"/><path d="M2 39c5 0 5-2 10-2s5 2 10 2 5-2 10-2 5 2 10 2 5-2 10-2 5 2 10 2"/></svg>
+        <span>Ingen bilde funnet</span>
+      </div>
+    </div>
+    <div id="kart"></div>
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ------------------------------------------------------------------
+//  Skipskort for Homey. All informasjon kommer i nettadressen, f.eks.
+//  ?navn=COLOR%20FANTASY&type=Passasjerskip&flagg=Norge&fart=16.2&kurs=180&lengde=224&bredde=35
+//   &dypgang=6.8&dest=KIEL&imo=9278234&mmsi=257105000&kallesignal=LNXX&lat=59.79&lon=10.55&kl=14:32
+//  Siden lagrer ingenting og inneholder ingen hemmeligheter.
+// ------------------------------------------------------------------
+const q = new URLSearchParams(location.search);
+const v = (k) => (q.get(k) || '').trim();
+const tall = (x, d = 1) => x === '' || isNaN(+x) ? '' : String(Math.round(+x * 10 ** d) / 10 ** d).replace('.', ',');
+const tittel = (s) => s.toLowerCase().replace(/(^|[\s\-\/])\S/g, (m) => m.toUpperCase());
+const retning = (k) => k === '' || isNaN(+k) ? '' : ['nord','nordøst','øst','sørøst','sør','sørvest','vest','nordvest'][Math.round(+k / 45) % 8];
+
+document.getElementById('topp').textContent = '⚓ Passerer nå' + (v('kl') ? ' · ' + v('kl') : '');
+document.getElementById('type').textContent = [v('type'), v('flagg')].filter(Boolean).join(' · ');
+document.getElementById('navn').textContent = v('navn') ? tittel(v('navn')) : 'Ukjent skip';
+if (v('navn').length > 16) document.getElementById('navn').style.fontSize = '7vh';
+
+const felt = [
+  ['Fart', v('fart') ? tall(v('fart')) + ' knop' + (retning(v('kurs')) ? ' mot ' + retning(v('kurs')) : '') : ''],
+  ['Størrelse', v('lengde') ? v('lengde') + ' m' + (v('bredde') ? ' × ' + v('bredde') + ' m' : '') : ''],
+  ['Dypgang', v('dypgang') ? tall(v('dypgang')) + ' m' : ''],
+  ['Destinasjon', v('dest') ? tittel(v('dest')) : ''],
+  ['Kallesignal', v('kallesignal')],
+  ['IMO', v('imo')],
+].filter(([, x]) => x);
+document.getElementById('grid').innerHTML = felt.map(([k, x]) => `<div class="felt"><span>${k}</span><b></b></div>`).join('');
+document.querySelectorAll('.felt b').forEach((b, i) => { b.textContent = felt[i][1]; });
+
+// ---- Bilde fra Wikimedia Commons (fritt lisensierte bilder, kategorien «IMO nnnnnnn») ----
+async function hentBilde() {
+  const imo = v('imo');
+  if (!imo) return;
+  const api = 'https://commons.wikimedia.org/w/api.php?format=json&origin=*&';
+  const filerI = async (kat) => {
+    const j = await (await fetch(api + 'action=query&generator=categorymembers&gcmtitle=' + encodeURIComponent(kat)
+      + '&gcmtype=file&gcmlimit=30&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=900')).json();
+    return Object.values((j.query && j.query.pages) || {})
+      .map((p) => p.imageinfo && p.imageinfo[0]).filter((i) => i && /jpeg|png/.test(i.mime) && i.thumburl);
+  };
+  try {
+    // Kategorien «IMO nnnnnnn» inneholder som regel en underkategori med skipets navn, der bildene ligger
+    let filer = await filerI('Category:IMO ' + imo);
+    if (!filer.length) {
+      const j = await (await fetch(api + 'action=query&list=categorymembers&cmtype=subcat&cmlimit=5&cmtitle=' + encodeURIComponent('Category:IMO ' + imo))).json();
+      for (const k of ((j.query && j.query.categorymembers) || [])) { filer = await filerI(k.title); if (filer.length) break; }
+    }
+    if (!filer.length) return;
+    const i = filer[Math.floor(Math.random() * filer.length)];
+    const m = i.extmetadata || {};
+    const tekst = (h) => (h && h.value ? h.value.replace(/<[^>]+>/g, '').trim() : '');
+    const box = document.getElementById('bilde');
+    const img = new Image();
+    img.onload = () => {
+      box.innerHTML = '';
+      box.appendChild(img);
+      const k = document.createElement('div');
+      k.className = 'kreditt';
+      k.textContent = ['Foto: ' + (tekst(m.Artist) || 'ukjent'), tekst(m.LicenseShortName), 'Wikimedia Commons'].filter(Boolean).join(' · ');
+      box.appendChild(k);
+    };
+    img.src = i.thumburl;
+  } catch (e) { /* ingen bilde */ }
+}
+hentBilde();
+
+// ---- Kart med skipets posisjon ----
+const lat = parseFloat(v('lat')), lon = parseFloat(v('lon'));
+if (!isNaN(lat) && !isNaN(lon) && window.L) {
+  const kart = L.map('kart', { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false }).setView([lat, lon], 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(kart);
+  const kurs = isNaN(+v('kurs')) ? 0 : +v('kurs');
+  const ikon = L.divIcon({ className: '', iconSize: [34, 34], iconAnchor: [17, 17],
+    html: `<svg class="skipspil" viewBox="0 0 34 34" style="transform:rotate(${kurs}deg)"><path d="M17 2 L27 30 L17 24 L7 30 Z" fill="#ffb703" stroke="#0b2545" stroke-width="2"/></svg>` });
+  L.marker([lat, lon], { icon: ikon }).addTo(kart);
+} else {
+  document.getElementById('kart').style.display = 'none';
+  document.querySelector('.hoyre').style.gridTemplateRows = '1fr';
+}
+</script>
+</body>
+</html>
